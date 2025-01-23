@@ -27,8 +27,7 @@ const commands = {
     'launcher': 'Download the latest open.mp launcher from here:\nhttps://github.com/openmultiplayer/launcher/releases/latest',
     'server': 'Download the latest open.mp server package from here:\nhttps://github.com/openmultiplayer/open.mp/releases/latest',
     'samp': 'Why use SA:MP when open.mp exists? :thinking:\nGet the latest open.mp launcher from here:\nhttps://github.com/openmultiplayer/launcher/releases/latest',
-    'oglocgit': 'See my source-code here:\nhttps://github.com/itsneufox/OGLocDiscord\n',
-    'retard': 'Ding ding ding! I found him :point_right: <@380122256715808770>'
+    'oglocgit': 'See my source-code here:\nhttps://github.com/itsneufox/OGLocDiscord\n'
 };
 
 const ogLocQuotes = [
@@ -60,9 +59,7 @@ function generateCommandList() {
         '# Utility\n' +
         '.remindme -  Set a reminder\n' +
         '.cmds     -  See list of commands\n' +
-        '.oglocgit -  Link to OG Loc source-code\n\n' +
-        '# Fun\n' +
-        '.retard   -  You know who is that...\n' +
+        '.oglocgit -  Link to OG Loc source-code\n' +
         '```';
 }
 
