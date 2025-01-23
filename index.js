@@ -2,8 +2,9 @@ const { Client, GatewayIntentBits } = require('discord.js');
 const { token } = require('./auth.json');
 const fs = require('fs/promises');
 
-const COOLDOWN_TIME = 15000;
-const ALLOWED_CHANNELS = ['231799104731217931', '1331013910022852696'];
+const COOLDOWN_TIME = 10000;
+const QUOTE_COOLDOWN = 60000;
+const ALLOWED_CHANNELS = ['231799104731217931'];
 const REMINDERS_FILE = 'reminders.json';
 const TIME_REGEX = /^(\d+)([smhd])$/;
 const TIME_UNITS = {
@@ -75,6 +76,15 @@ async function loadReminders() {
     }
 }
 
+async function cleanExpiredReminders() {
+    for (const [userId, userReminders] of reminders) {
+        const active = userReminders.filter(r => r.endTime > Date.now());
+        if (active.length === 0) reminders.delete(userId);
+        else reminders.set(userId, active);
+    }
+    await saveReminders();
+}
+
 async function saveReminders() {
     const data = JSON.stringify(Array.from(reminders));
     await fs.writeFile(REMINDERS_FILE, data);
@@ -92,6 +102,29 @@ async function handleReminder(message, args) {
 
     const amount = parseInt(timeMatch[1]);
     const unit = timeMatch[2];
+    
+    if (amount <= 0) {
+        await message.reply(':x: Time must be positive!');
+        return;
+    }
+    
+    const MAX_TIMES = {
+        's': 3600,
+        'm': 1440,
+        'h': 168,
+        'd': 365
+    };
+    
+    if (amount > MAX_TIMES[unit]) {
+        await message.reply(`:x: Maximum allowed time for ${unit} is ${MAX_TIMES[unit]}`);
+        return;
+    }
+
+    if (!content) {
+        await message.reply(':x: Please provide a reminder message!');
+        return;
+    }
+
     const seconds = amount * TIME_UNITS[unit];
     const endTime = Date.now() + (seconds * 1000);
 
@@ -111,17 +144,21 @@ async function handleReminder(message, args) {
     setTimeout(async () => {
         try {
             const user = await client.users.fetch(reminder.userId);
-            await user.send(`:wave: Here's your reminder:\n\n\`${reminder.content}\``);
+            try {
+                await user.send(`:wave: Hey! Here's your reminder:\n\n\`${reminder.content}\``);
+            } catch (dmError) {
+                const channel = await client.channels.fetch(reminder.channelId);
+                await channel.send(`:wave: Hey <@${reminder.userId}>, here's your reminder (i couldn't DM you):\n\n\`${reminder.content}\``);
+            }
         } catch (error) {
-            const channel = await client.channels.fetch(reminder.channelId);
-            await channel.send(`:wave: <@${reminder.userId}>, here's your reminder:\n\n\`${reminder.content}\``);
+            console.error('Failed to deliver reminder:', error);
         }
         
-        const userReminders = reminders.get(message.author.id).filter(r => r !== reminder);
+        const userReminders = reminders.get(reminder.userId).filter(r => r !== reminder);
         if (userReminders.length === 0) {
-            reminders.delete(message.author.id);
+            reminders.delete(reminder.userId);
         } else {
-            reminders.set(message.author.id, userReminders);
+            reminders.set(reminder.userId, userReminders);
         }
         await saveReminders();
     }, seconds * 1000);
@@ -141,6 +178,8 @@ const client = new Client({
 client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}`);
     await loadReminders();
+    await cleanExpiredReminders();
+    setInterval(cleanExpiredReminders, 8 * 60 * 60 * 1000);
 });
 
 client.on('messageCreate', async message => {
@@ -153,9 +192,9 @@ client.on('messageCreate', async message => {
             return;
         }
 
-        COOLDOWN.set(message.author.id, Date.now() + COOLDOWN_TIME);
+        COOLDOWN.set(message.author.id, Date.now() + QUOTE_COOLDOWN);
         await message.reply(ogLocQuotes[Math.floor(Math.random() * ogLocQuotes.length)]);
-        setTimeout(() => COOLDOWN.delete(message.author.id), COOLDOWN_TIME);
+        setTimeout(() => COOLDOWN.delete(message.author.id), QUOTE_COOLDOWN);
         return;
     }
 
