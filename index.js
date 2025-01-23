@@ -19,6 +19,8 @@ const commands = {
     '# Utility\n' +
     '.cmds     -  See list of commands\n' +
     '.remindme -  Set a reminder\n' +
+    '.github   -  Link to OG Loc source-code\n\n' +
+    '# Fun\n' +
     '.retard   -  You know who is that...\n' +
     '```',
     'gta': 'Game download link: https://amii.ir/files/hlm-gtasa.iso\nTutorial: https://discord.nfp.is/tY4',
@@ -28,7 +30,8 @@ const commands = {
     'launcher': 'Download the latest open.mp launcher from here:\nhttps://github.com/openmultiplayer/launcher/releases/latest',
     'server': 'Download the latest open.mp server package from here:\nhttps://github.com/openmultiplayer/open.mp/releases/latest',
     'samp': 'Don\'t use SAMP, use open.mp instead!\nDownload the latest open.mp launcher from here:\nhttps://github.com/openmultiplayer/launcher/releases/latest',
-    'retard': 'It\'s this guy here: <@380122256715808770>'
+    'retard': 'It\'s this guy here: <@380122256715808770>',
+    'github': 'See my source-code here:\nhttps://github.com/itsneufox/OGLocDiscord\n'
 };
 
 async function loadReminders() {
