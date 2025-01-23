@@ -188,7 +188,7 @@ client.on('messageCreate', async message => {
             await message.react('⏳');
             return;
         }
-
+        
         COOLDOWN.set(message.author.id, Date.now() + QUOTE_COOLDOWN);
         await message.reply(ogLocQuotes[Math.floor(Math.random() * ogLocQuotes.length)]);
         setTimeout(() => COOLDOWN.delete(message.author.id), QUOTE_COOLDOWN);
@@ -196,31 +196,28 @@ client.on('messageCreate', async message => {
     }
 
     if ((!message.content.startsWith('.') && !message.content.startsWith('!')) || message.author.bot) return;
-
-    const cooldownEnd = COOLDOWN.get(message.author.id);
-    if (cooldownEnd && Date.now() < cooldownEnd) {
-        await message.react('⏳');
-        return;
-    }
-
-    COOLDOWN.set(message.author.id, Date.now() + COOLDOWN_TIME);
-
+    
     const prefix = message.content[0];
-
-    if (message.content.startsWith(`${prefix}remindme`)) {
-        const args = message.content.slice(9).trim().split(/ +/);
-        await handleReminder(message, args);
-        return;
-    }
-
     const command = message.content.slice(1).toLowerCase();
     const response = commands[command];
-    
-    if (response) {
-        await message.reply(response);
-    }
 
-    setTimeout(() => COOLDOWN.delete(message.author.id), COOLDOWN_TIME);
+    if (message.content.startsWith(`${prefix}remindme`) || response) {
+        const cooldownEnd = COOLDOWN.get(message.author.id);
+        if (cooldownEnd && Date.now() < cooldownEnd) {
+            await message.react('⏳');
+            return;
+        }
+        COOLDOWN.set(message.author.id, Date.now() + COOLDOWN_TIME);
+        
+        if (message.content.startsWith(`${prefix}remindme`)) {
+            const args = message.content.slice(9).trim().split(/ +/);
+            await handleReminder(message, args);
+        } else {
+            await message.reply(response);
+        }
+        
+        setTimeout(() => COOLDOWN.delete(message.author.id), COOLDOWN_TIME);
+    }
 });
 
 client.login(token);
