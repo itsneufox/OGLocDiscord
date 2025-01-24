@@ -7,6 +7,14 @@ const QUOTE_COOLDOWN = 60000;
 const ALLOWED_CHANNELS = ['231799104731217931'];
 const REMINDERS_FILE = 'reminders.json';
 const TIME_REGEX = /^(\d+)([smhd])$/;
+
+const GLOBAL_COOLDOWNS = {
+    quote: { lastUsed: 0 },
+    retard: { lastUsed: 0 },
+    amir: { lastUsed: 0 },
+    amirfr: { lastUsed: 0 }
+};
+
 const TIME_UNITS = {
     's': 1,
     'm': 60,
@@ -20,6 +28,7 @@ let reminders = new Map();
 const commands = {
     'help': generateCommandList(),
     'cmds': generateCommandList(),
+    'commands': generateCommandList(),
     'gta': 'Game download link: https://amii.ir/files/hlm-gtasa.iso\nTutorial: https://discord.nfp.is/tY4',
     'piracy': ':warning: IT IS MORALLY CORRECT TO PIRATE THE ORIGINAL GTA SA IN 2025 TO PLAY OMP/SA:MP :warning:',
     'gtadhd': 'Game download link: https://amii.ir/files/hlm-gtasa.iso\nTutorial: https://discord.nfp.is/Toi',
@@ -27,7 +36,12 @@ const commands = {
     'launcher': 'Download the latest open.mp launcher from here:\nhttps://github.com/openmultiplayer/launcher/releases/latest',
     'server': 'Download the latest open.mp server package from here:\nhttps://github.com/openmultiplayer/open.mp/releases/latest',
     'samp': 'Why use SA:MP when open.mp exists? :thinking:\nGet the latest open.mp launcher from here:\nhttps://github.com/openmultiplayer/launcher/releases/latest',
-    'oglocgit': 'See my source-code here:\nhttps://github.com/itsneufox/OGLocDiscord\n'
+    'oglocgit': 'See my source-code here:\nhttps://github.com/itsneufox/OGLocDiscord\n',
+    'retard': 'Ding ding ding! I found him :point_right: <@380122256715808770>',
+    'amir': '<@413452980470415361> is a fuckin bitch',
+    'amirfr': 'nah jk <@413452980470415361> is cool',
+    'whenomp': 'Dobby: :man: :heart: :kiss: :man:',
+    'pet': 'Rudy is currently on vacation, try again in a few days!',
 };
 
 const ogLocQuotes = [
@@ -59,7 +73,12 @@ function generateCommandList() {
         '# Utility\n' +
         '.remindme -  Set a reminder\n' +
         '.cmds     -  See list of commands\n' +
-        '.oglocgit -  Link to OG Loc source-code\n' +
+        '.oglocgit -  Link to OG Loc source-code\n\n' +
+        '# Fun\n' +
+        '.retard   -  You know who is that...\n' +
+        '.amir     -  Amir command 1...\n' +
+        '.amirfr   -  Amir command 2...\n' +
+        '.whenomp  -  Dobby when open.mp?\n' +
         '```';
 }
 
@@ -183,15 +202,13 @@ client.on('messageCreate', async message => {
     if (message.author.bot) return;
 
     if (message.content.toLowerCase().includes('og loc') && ALLOWED_CHANNELS.includes(message.channel.id)) {
-        const cooldownEnd = COOLDOWN.get(message.author.id);
-        if (cooldownEnd && Date.now() < cooldownEnd) {
+        if (Date.now() < GLOBAL_COOLDOWNS.quote.lastUsed + QUOTE_COOLDOWN) {
             await message.react('⏳');
             return;
         }
         
-        COOLDOWN.set(message.author.id, Date.now() + QUOTE_COOLDOWN);
+        GLOBAL_COOLDOWNS.quote.lastUsed = Date.now();
         await message.reply(ogLocQuotes[Math.floor(Math.random() * ogLocQuotes.length)]);
-        setTimeout(() => COOLDOWN.delete(message.author.id), QUOTE_COOLDOWN);
         return;
     }
 
@@ -200,6 +217,16 @@ client.on('messageCreate', async message => {
     const prefix = message.content[0];
     const command = message.content.slice(1).toLowerCase();
     const response = commands[command];
+
+    if (['retard', 'amir', 'amirfr'].includes(command)) {
+        if (Date.now() < GLOBAL_COOLDOWNS[command].lastUsed + QUOTE_COOLDOWN) {
+            await message.react('⏳');
+            return;
+        }
+        GLOBAL_COOLDOWNS[command].lastUsed = Date.now();
+        await message.reply(response);
+        return;
+    }
 
     if (message.content.startsWith(`${prefix}remindme`) || response) {
         const cooldownEnd = COOLDOWN.get(message.author.id);
