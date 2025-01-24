@@ -38,10 +38,11 @@ const commands = {
     'samp': 'Why use SA:MP when open.mp exists? :thinking:\nGet the latest open.mp launcher from here:\nhttps://github.com/openmultiplayer/launcher/releases/latest',
     'oglocgit': 'See my source-code here:\nhttps://github.com/itsneufox/OGLocDiscord\n',
     'retard': 'Ding ding ding! I found him :point_right: <@380122256715808770>',
-    'amir': '<@413452980470415361> is a fuckin bitch',
-    'amirfr': 'nah jk <@413452980470415361> is cool',
+    'amir': 'Amir is a fuckin bitch',
+    'amirfr': 'nah jk Amir is cool',
     'whenomp': 'Dobby: :man: :heart: :kiss: :man:',
     'pet': 'Rudy is currently on vacation, try again in a few days!',
+    'makerudyfat': 'Rudy is currently on vacation, try again in a few days!'
 };
 
 const ogLocQuotes = [
@@ -76,8 +77,6 @@ function generateCommandList() {
         '.oglocgit -  Link to OG Loc source-code\n\n' +
         '# Fun\n' +
         '.retard   -  You know who is that...\n' +
-        '.amir     -  Amir command 1...\n' +
-        '.amirfr   -  Amir command 2...\n' +
         '.whenomp  -  Dobby when open.mp?\n' +
         '```';
 }
