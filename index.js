@@ -2,7 +2,7 @@ const { Client, GatewayIntentBits } = require('discord.js');
 const { token } = require('./auth.json');
 const fs = require('fs/promises');
 
-const GLOBAL_COOLDOWN = 5000;
+const GLOBAL_COOLDOWN = 20000;
 const REMINDERS_FILE = 'reminders.json';
 const TIME_REGEX = /^(\d+)([smhd])$/;
 const BANNED_USERS = ['283217410578972672'];
@@ -190,7 +190,6 @@ client.on('messageCreate', async message => {
     const command = message.content.slice(1).toLowerCase();
     const response = commands[command];
 
-    // Check if command exists or is remindme before proceeding with user checks
     const isValidCommand = response || message.content.startsWith(`${prefix}remindme`);
     if (!isValidCommand) return;
 
