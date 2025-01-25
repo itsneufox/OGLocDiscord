@@ -1,6 +1,20 @@
-const { Client, GatewayIntentBits } = require('discord.js');
-const { token } = require('./auth.json');
+const {
+    Client,
+    GatewayIntentBits
+} = require('discord.js');
+
+const {
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle
+} = require('discord.js');
+
+const {
+    token
+} = require('./auth.json');
+
 const fs = require('fs/promises');
+const axios = require('axios');
 
 const GLOBAL_COOLDOWN = 15000;
 const REMINDERS_FILE = 'reminders.json';
@@ -19,6 +33,134 @@ const TIME_UNITS = {
 };
 
 let reminders = new Map();
+
+async function handleUrban(message, args) {
+    const word = args.join(' ');
+    if (!word) {
+        await message.reply(':x: Please provide a word to search!');
+        return;
+    }
+
+    try {
+        const response = await axios.get(`https://api.urbandictionary.com/v0/define?term=${encodeURIComponent(word)}`);
+        const data = response.data;
+
+        if (!data.list || data.list.length === 0) {
+            await message.reply('No Urban Dictionary entries were found.');
+            return;
+        }
+
+        const entries = data.list.map(ud => ({
+            title: `${ud.word} by ${ud.author}`.slice(0, 255),
+            url: ud.permalink,
+            description: `${ud.definition}\n\n**Example:** ${ud.example}`.slice(0, 2047),
+            footer: `👎 ${ud.thumbs_down} / 👍 ${ud.thumbs_up}, Powered by Urban Dictionary`
+        }));
+
+        let currentPage = 0;
+        const embed = {
+            color: 0x0099ff,
+            title: entries[currentPage].title,
+            url: entries[currentPage].url,
+            description: entries[currentPage].description,
+            footer: {
+                text: `${entries[currentPage].footer} | Page ${currentPage + 1}/${entries.length}`
+            }
+        };
+
+        const row = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                .setCustomId('previous')
+                .setLabel('Previous')
+                .setStyle(ButtonStyle.Primary)
+                .setDisabled(currentPage === 0),
+                new ButtonBuilder()
+                .setCustomId('next')
+                .setLabel('Next')
+                .setStyle(ButtonStyle.Primary)
+                .setDisabled(entries.length <= 1)
+            );
+
+        const reply = await message.reply({
+            embeds: [embed],
+            components: entries.length > 1 ? [row] : []
+        });
+
+        if (entries.length > 1) {
+            const collector = reply.createMessageComponentCollector({
+                time: 60000
+            });
+
+            collector.on('collect', async interaction => {
+                if (interaction.user.id !== message.author.id) {
+                    await interaction.reply({
+                        content: 'This is not for you!',
+                        ephemeral: true
+                    });
+                    return;
+                }
+
+                if (interaction.customId === 'previous') {
+                    currentPage = currentPage > 0 ? currentPage - 1 : entries.length - 1;
+                } else if (interaction.customId === 'next') {
+                    currentPage = currentPage < entries.length - 1 ? currentPage + 1 : 0;
+                }
+
+                const newEmbed = {
+                    color: 0x0099ff,
+                    title: entries[currentPage].title,
+                    url: entries[currentPage].url,
+                    description: entries[currentPage].description,
+                    footer: {
+                        text: `${entries[currentPage].footer} | Page ${currentPage + 1}/${entries.length}`
+                    }
+                };
+
+                const newRow = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                        .setCustomId('previous')
+                        .setLabel('Previous')
+                        .setStyle(ButtonStyle.Primary)
+                        .setDisabled(currentPage === 0),
+                        new ButtonBuilder()
+                        .setCustomId('next')
+                        .setLabel('Next')
+                        .setStyle(ButtonStyle.Primary)
+                        .setDisabled(currentPage === entries.length - 1)
+                    );
+
+                await interaction.update({
+                    embeds: [newEmbed],
+                    components: [newRow]
+                });
+            });
+
+            collector.on('end', () => {
+                const disabledRow = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                        .setCustomId('previous')
+                        .setLabel('Previous')
+                        .setStyle(ButtonStyle.Primary)
+                        .setDisabled(true),
+                        new ButtonBuilder()
+                        .setCustomId('next')
+                        .setLabel('Next')
+                        .setStyle(ButtonStyle.Primary)
+                        .setDisabled(true)
+                    );
+                reply.edit({
+                    components: [disabledRow]
+                }).catch(console.error);
+            });
+        }
+    } catch (error) {
+        console.error('Urban Dictionary API error:', error);
+        await message.reply('Failed to fetch Urban Dictionary entry.');
+    }
+}
 
 const commands = {
     'help': generateCommandList(),
@@ -43,13 +185,19 @@ const commands = {
     'whenomp': 'Dobby: :man: :heart: :kiss: :man:',
     'pet': 'Rudy is currently on vacation, try again in a few days!',
     'makerudyfat': 'Rudy is currently on vacation, try again in a few days!',
+    'crazy': 'Crazy? I was crazy once. They locked me in a room. A rubber room. A rubber room with rats, and rats make me crazy',
+    'dentist': 'i am a medical student it is complicated when you know how your brain works',
     'mido': () => {
         counter++;
         saveCounter();
         const suffix = counter % 10 === 1 && counter % 100 !== 11 ? 'st' :
-                      counter % 10 === 2 && counter % 100 !== 12 ? 'nd' :
-                      counter % 10 === 3 && counter % 100 !== 13 ? 'rd' : 'th';
+            counter % 10 === 2 && counter % 100 !== 12 ? 'nd' :
+            counter % 10 === 3 && counter % 100 !== 13 ? 'rd' : 'th';
         return `mido is busy rewriting his gamemode for the ${counter}${suffix} time`;
+    },
+    'urban': async (message, args) => {
+        const searchArgs = args.slice(1);
+        await handleUrban(message, searchArgs);
     }
 };
 
@@ -66,12 +214,15 @@ function generateCommandList() {
         '.samp     -  Get SA:MP launcher\n\n' +
         '# Utility\n' +
         '.remindme -  Set a reminder\n' +
+        '.urban    -  Search Urban Dictionary\n' +
         '.cmds     -  See list of commands\n' +
         '.oglocgit -  Link to OG Loc source-code\n\n' +
         '# Fun\n' +
         '.retard   -  You know who is that...\n' +
         '.whenomp  -  Dobby when open.mp?\n' +
         '.mido     -  Is Mido busy rewriting?\n' +
+        '.crazy    -  HE IS CRAZY!!!\n' +
+        '.dentist  -  Definitely not British...\n' +
         '```';
 }
 
@@ -86,7 +237,9 @@ async function loadCounter() {
 }
 
 async function saveCounter() {
-    const data = JSON.stringify({ count: counter });
+    const data = JSON.stringify({
+        count: counter
+    });
     await fs.writeFile(COUNTER_FILE, data);
 }
 
@@ -126,19 +279,19 @@ async function handleReminder(message, args) {
 
     const amount = parseInt(timeMatch[1]);
     const unit = timeMatch[2];
-    
+
     if (amount <= 0) {
         await message.reply(':x: Time must be positive!');
         return;
     }
-    
+
     const MAX_TIMES = {
         's': 3600,
         'm': 1440,
         'h': 168,
         'd': 365
     };
-    
+
     if (amount > MAX_TIMES[unit]) {
         await message.reply(`:x: Maximum allowed time for ${unit} is ${MAX_TIMES[unit]}`);
         return;
@@ -177,7 +330,7 @@ async function handleReminder(message, args) {
         } catch (error) {
             console.error('Failed to deliver reminder:', error);
         }
-        
+
         const userReminders = reminders.get(reminder.userId).filter(r => r !== reminder);
         if (userReminders.length === 0) {
             reminders.delete(reminder.userId);
@@ -195,7 +348,8 @@ const client = new Client({
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
-        GatewayIntentBits.DirectMessages
+        GatewayIntentBits.DirectMessages,
+        GatewayIntentBits.GuildMessageReactions
     ]
 });
 
@@ -209,13 +363,98 @@ client.once('ready', async () => {
 
 client.on('messageCreate', async message => {
     if (message.author.bot) return;
+
+    if ((message.content.includes('instagram.com') && !message.content.includes('ddinstagram.com') && !message.content.includes('instagramez.com')) ||
+        (message.content.includes('x.com') && !message.content.includes('fxtwitter.com')) ||
+        (message.content.includes('twitter.com') && !message.content.includes('vxtwitter.com'))) {
+
+        const linkVariants = [{
+                transform: content => content
+                    .replace(/instagram\.com/g, 'ddinstagram.com')
+                    .replace(/twitter\.com/g, 'vxtwitter.com')
+                    .replace(/x\.com/g, 'fxtwitter.com'),
+                label: content => {
+                    if (content.includes('instagram.com')) return 'Try DDinstagram';
+                    if (content.includes('twitter.com') || content.includes('x.com')) return 'Try  VXtwitter';
+                    return 'Try Alternate';
+                }
+            },
+            {
+                transform: content => content
+                    .replace(/instagram\.com/g, 'instagramez.com')
+                    .replace(/twitter\.com/g, 'fxtwitter.com')
+                    .replace(/x\.com/g, 'vxtwitter.com'),
+                label: content => {
+                    if (content.includes('instagram.com')) return 'Try instagramEZ';
+                    if (content.includes('twitter.com') || content.includes('x.com')) return 'Try FXtwitter';
+                    return 'Try Alternate';
+                }
+            }
+        ];
+
+        let currentVariant = 0;
+        let currentContent = linkVariants[currentVariant].transform(message.content);
+
+        const getRow = () => {
+            return new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                    .setCustomId('alternate')
+                    .setLabel(linkVariants[(currentVariant + 1) % linkVariants.length].label(message.content))
+                    .setStyle(ButtonStyle.Primary)
+                );
+        };
+
+        const reply = await message.reply({
+            content: currentContent,
+            components: [getRow()]
+        });
+
+        const collector = reply.createMessageComponentCollector({
+            time: 60000
+        });
+
+        collector.on('collect', async interaction => {
+            if (interaction.user.id !== message.author.id) {
+                await interaction.reply({
+                    content: 'This is not for you!',
+                    ephemeral: true
+                });
+                return;
+            }
+
+            currentVariant = (currentVariant + 1) % linkVariants.length;
+            currentContent = linkVariants[currentVariant].transform(message.content);
+
+            await interaction.update({
+                content: currentContent,
+                components: [getRow()]
+            });
+        });
+
+        collector.on('end', () => {
+            if (!reply.deleted) {
+                const disabledRow = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                        .setCustomId('alternate')
+                        .setLabel(linkVariants[(currentVariant + 1) % linkVariants.length].label(message.content))
+                        .setStyle(ButtonStyle.Primary)
+                        .setDisabled(true)
+                    );
+                reply.edit({
+                    components: [disabledRow]
+                }).catch(() => {});
+            }
+        });
+    }
     if (!message.content.startsWith('.') && !message.content.startsWith('!')) return;
 
     const prefix = message.content[0];
-    const command = message.content.slice(1).toLowerCase();
-    const response = commands[command];
+    const args = message.content.slice(1).trim().split(/ +/);
+    const command = args[0].toLowerCase();
 
-    const isValidCommand = response || message.content.startsWith(`${prefix}remindme`);
+    const isValidCommand = commands[command] || message.content.startsWith(`${prefix}remindme`);
     if (!isValidCommand) return;
 
     if (BANNED_USERS.includes(message.author.id)) {
@@ -225,21 +464,24 @@ client.on('messageCreate', async message => {
 
     const userId = message.author.id;
     const cooldownEnd = COOLDOWNS.get(userId);
-    
+
     if (cooldownEnd && Date.now() < cooldownEnd) {
-        await message.react('❳');
+        await message.react('⏳');
         return;
     }
-    
+
     COOLDOWNS.set(userId, Date.now() + GLOBAL_COOLDOWN);
-    
+
     if (message.content.startsWith(`${prefix}remindme`)) {
-        const args = message.content.slice(9).trim().split(/ +/);
-        await handleReminder(message, args);
+        const reminderArgs = message.content.slice(9).trim().split(/ +/);
+        await handleReminder(message, reminderArgs);
+    } else if (command === 'urban') {
+        await commands.urban(message, args);
     } else {
+        const response = commands[command];
         await message.reply(typeof response === 'function' ? response() : response);
     }
-    
+
     setTimeout(() => COOLDOWNS.delete(userId), GLOBAL_COOLDOWN);
 });
 
