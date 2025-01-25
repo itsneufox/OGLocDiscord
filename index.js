@@ -2,18 +2,11 @@ const { Client, GatewayIntentBits } = require('discord.js');
 const { token } = require('./auth.json');
 const fs = require('fs/promises');
 
-const COOLDOWN_TIME = 10000;
-const QUOTE_COOLDOWN = 60000;
-const ALLOWED_CHANNELS = ['231799104731217931'];
+const GLOBAL_COOLDOWN = 25000;
 const REMINDERS_FILE = 'reminders.json';
 const TIME_REGEX = /^(\d+)([smhd])$/;
 
-const GLOBAL_COOLDOWNS = {
-    quote: { lastUsed: 0 },
-    retard: { lastUsed: 0 },
-    amir: { lastUsed: 0 },
-    amirfr: { lastUsed: 0 }
-};
+const COOLDOWNS = new Map();
 
 const TIME_UNITS = {
     's': 1,
@@ -22,7 +15,6 @@ const TIME_UNITS = {
     'd': 86400
 };
 
-const COOLDOWN = new Map();
 let reminders = new Map();
 
 const commands = {
@@ -37,28 +29,19 @@ const commands = {
     'server': 'Download the latest open.mp server package from here:\nhttps://github.com/openmultiplayer/open.mp/releases/latest',
     'samp': 'Why use SA:MP when open.mp exists? :thinking:\nGet the latest open.mp launcher from here:\nhttps://github.com/openmultiplayer/launcher/releases/latest',
     'oglocgit': 'See my source-code here:\nhttps://github.com/itsneufox/OGLocDiscord\n',
+    'wtls': 'This is open.mp/sa-mp discord server, not WTLS, you can find their discord at the bottom of their website. Please stop discussing about internal dramas in here, this is NOT the place for it!',
+    'stock': 'don\'t use stock, until then eventually you will find out if you ever need it',
+    'scm': '`SCM` as a macro for `SendClientMessage` is fucking stupid. Eject it from your code immediately.',
+    'storyden': 'can i trouble you good sir to hear the good word of Storyden, the forum software of the future? https://storyden.org',
     'retard': 'Ding ding ding! I found him :point_right: <@380122256715808770>',
-    'amir': 'Amir is a fuckin bitch',
-    'amirfr': 'nah jk Amir is cool',
+    'amir': 'amir is a fuckin bitch',
+    'amirfr': 'nah jk amir is cool',
+    'graber': 'graber is a bitch',
+    'mido': 'mido is busy rewriting his gamemode',
     'whenomp': 'Dobby: :man: :heart: :kiss: :man:',
     'pet': 'Rudy is currently on vacation, try again in a few days!',
     'makerudyfat': 'Rudy is currently on vacation, try again in a few days!'
 };
-
-const ogLocQuotes = [
-    "Yeah, yeah, yeah... This is me, OG Loc, in the house, baby...",
-    "Damn, my shit was whack!",
-    "I'm GANGSTA!",
-    "I'm the voice of the people, like Moses, only keepin' it real!",
-    "Man, fuck you! And I don't care what you heard, I ain't nobody's Ass Technician, BITCH!",
-    "You punk-ass bitch, punk-ass busta fool!",
-    "You a busta fool. Luckily, your not dead 'coz I'm also a pimp! Including you, I'll pimp anything! You hear me playa?",
-    "ARE YOU - DISSIN' - MY HOS, BITCH?",
-    "Like a 'quarter pound! Later!",
-    "I've been gangbangin' since I was three!",
-    "I gotta protect my rep!",
-    "Look at my man CJ right there - what up, n-gga? What UUUUUUUUPPPP..."
-];
 
 function generateCommandList() {
     return '```md\n# Note: All commands work with both . and ! prefixes\n\n' +
@@ -78,6 +61,7 @@ function generateCommandList() {
         '# Fun\n' +
         '.retard   -  You know who is that...\n' +
         '.whenomp  -  Dobby when open.mp?\n' +
+        '.mido     -  Is Mido busy rewriting?\n' +
         '```';
 }
 
@@ -199,41 +183,22 @@ client.once('ready', async () => {
 
 client.on('messageCreate', async message => {
     if (message.author.bot) return;
+    if (!message.content.startsWith('.') && !message.content.startsWith('!')) return;
 
-    if (message.content.toLowerCase().includes('og loc') && ALLOWED_CHANNELS.includes(message.channel.id)) {
-        if (Date.now() < GLOBAL_COOLDOWNS.quote.lastUsed + QUOTE_COOLDOWN) {
-            await message.react('⏳');
-            return;
-        }
-        
-        GLOBAL_COOLDOWNS.quote.lastUsed = Date.now();
-        await message.reply(ogLocQuotes[Math.floor(Math.random() * ogLocQuotes.length)]);
+    const userId = message.author.id;
+    const cooldownEnd = COOLDOWNS.get(userId);
+    
+    if (cooldownEnd && Date.now() < cooldownEnd) {
+        await message.react('⏳');
         return;
     }
-
-    if ((!message.content.startsWith('.') && !message.content.startsWith('!')) || message.author.bot) return;
     
     const prefix = message.content[0];
     const command = message.content.slice(1).toLowerCase();
     const response = commands[command];
 
-    if (['retard', 'amir', 'amirfr'].includes(command)) {
-        if (Date.now() < GLOBAL_COOLDOWNS[command].lastUsed + QUOTE_COOLDOWN) {
-            await message.react('⏳');
-            return;
-        }
-        GLOBAL_COOLDOWNS[command].lastUsed = Date.now();
-        await message.reply(response);
-        return;
-    }
-
     if (message.content.startsWith(`${prefix}remindme`) || response) {
-        const cooldownEnd = COOLDOWN.get(message.author.id);
-        if (cooldownEnd && Date.now() < cooldownEnd) {
-            await message.react('⏳');
-            return;
-        }
-        COOLDOWN.set(message.author.id, Date.now() + COOLDOWN_TIME);
+        COOLDOWNS.set(userId, Date.now() + GLOBAL_COOLDOWN);
         
         if (message.content.startsWith(`${prefix}remindme`)) {
             const args = message.content.slice(9).trim().split(/ +/);
@@ -242,7 +207,7 @@ client.on('messageCreate', async message => {
             await message.reply(response);
         }
         
-        setTimeout(() => COOLDOWN.delete(message.author.id), COOLDOWN_TIME);
+        setTimeout(() => COOLDOWNS.delete(userId), GLOBAL_COOLDOWN);
     }
 });
 
