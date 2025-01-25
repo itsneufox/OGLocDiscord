@@ -54,7 +54,7 @@ async function handleUrban(message, args) {
             title: `${ud.word} by ${ud.author}`.slice(0, 255),
             url: ud.permalink,
             description: `${ud.definition}\n\n**Example:** ${ud.example}`.slice(0, 2047),
-            footer: `👎 ${ud.thumbs_down} / 👍 ${ud.thumbs_up}, Powered by Urban Dictionary`
+            footer: `👎 ${ud.thumbs_down} / 👍 ${ud.thumbs_up}, Powered by your modder`
         }));
 
         let currentPage = 0;
