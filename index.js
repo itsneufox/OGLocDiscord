@@ -2,12 +2,14 @@ const { Client, GatewayIntentBits } = require('discord.js');
 const { token } = require('./auth.json');
 const fs = require('fs/promises');
 
-const GLOBAL_COOLDOWN = 20000;
+const GLOBAL_COOLDOWN = 15000;
 const REMINDERS_FILE = 'reminders.json';
+const COUNTER_FILE = 'counter.json';
 const TIME_REGEX = /^(\d+)([smhd])$/;
 const BANNED_USERS = ['283217410578972672'];
 
 const COOLDOWNS = new Map();
+let counter = 0;
 
 const TIME_UNITS = {
     's': 1,
@@ -38,10 +40,17 @@ const commands = {
     'amir': 'amir is a fuckin bitch',
     'amirfr': 'nah jk amir is cool',
     'graber': 'graber is a bitch',
-    'mido': () => `mido is busy rewriting his gamemode for the ${Math.floor(Math.random() * 1000000000)}th time`,
     'whenomp': 'Dobby: :man: :heart: :kiss: :man:',
     'pet': 'Rudy is currently on vacation, try again in a few days!',
-    'makerudyfat': 'Rudy is currently on vacation, try again in a few days!'
+    'makerudyfat': 'Rudy is currently on vacation, try again in a few days!',
+    'mido': () => {
+        counter++;
+        saveCounter();
+        const suffix = counter % 10 === 1 && counter % 100 !== 11 ? 'st' :
+                      counter % 10 === 2 && counter % 100 !== 12 ? 'nd' :
+                      counter % 10 === 3 && counter % 100 !== 13 ? 'rd' : 'th';
+        return `mido is busy rewriting his gamemode for the ${counter}${suffix} time`;
+    }
 };
 
 function generateCommandList() {
@@ -64,6 +73,21 @@ function generateCommandList() {
         '.whenomp  -  Dobby when open.mp?\n' +
         '.mido     -  Is Mido busy rewriting?\n' +
         '```';
+}
+
+async function loadCounter() {
+    try {
+        const data = await fs.readFile(COUNTER_FILE, 'utf8');
+        counter = JSON.parse(data).count;
+    } catch (err) {
+        console.log('No existing counter found, starting at 0');
+        await saveCounter();
+    }
+}
+
+async function saveCounter() {
+    const data = JSON.stringify({ count: counter });
+    await fs.writeFile(COUNTER_FILE, data);
 }
 
 async function loadReminders() {
@@ -177,6 +201,7 @@ const client = new Client({
 
 client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}`);
+    await loadCounter();
     await loadReminders();
     await cleanExpiredReminders();
     setInterval(cleanExpiredReminders, 8 * 60 * 60 * 1000);
@@ -202,7 +227,7 @@ client.on('messageCreate', async message => {
     const cooldownEnd = COOLDOWNS.get(userId);
     
     if (cooldownEnd && Date.now() < cooldownEnd) {
-        await message.react('⏳');
+        await message.react('❳');
         return;
     }
     
