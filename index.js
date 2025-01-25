@@ -2,9 +2,10 @@ const { Client, GatewayIntentBits } = require('discord.js');
 const { token } = require('./auth.json');
 const fs = require('fs/promises');
 
-const GLOBAL_COOLDOWN = 25000;
+const GLOBAL_COOLDOWN = 5000;
 const REMINDERS_FILE = 'reminders.json';
 const TIME_REGEX = /^(\d+)([smhd])$/;
+const BANNED_USERS = ['283217410578972672'];
 
 const COOLDOWNS = new Map();
 
@@ -37,7 +38,7 @@ const commands = {
     'amir': 'amir is a fuckin bitch',
     'amirfr': 'nah jk amir is cool',
     'graber': 'graber is a bitch',
-    'mido': 'mido is busy rewriting his gamemode',
+    'mido': () => `mido is busy rewriting his gamemode for the ${Math.floor(Math.random() * 1000000000)}th time`,
     'whenomp': 'Dobby: :man: :heart: :kiss: :man:',
     'pet': 'Rudy is currently on vacation, try again in a few days!',
     'makerudyfat': 'Rudy is currently on vacation, try again in a few days!'
@@ -185,6 +186,19 @@ client.on('messageCreate', async message => {
     if (message.author.bot) return;
     if (!message.content.startsWith('.') && !message.content.startsWith('!')) return;
 
+    const prefix = message.content[0];
+    const command = message.content.slice(1).toLowerCase();
+    const response = commands[command];
+
+    // Check if command exists or is remindme before proceeding with user checks
+    const isValidCommand = response || message.content.startsWith(`${prefix}remindme`);
+    if (!isValidCommand) return;
+
+    if (BANNED_USERS.includes(message.author.id)) {
+        await message.react('🖕');
+        return;
+    }
+
     const userId = message.author.id;
     const cooldownEnd = COOLDOWNS.get(userId);
     
@@ -193,22 +207,16 @@ client.on('messageCreate', async message => {
         return;
     }
     
-    const prefix = message.content[0];
-    const command = message.content.slice(1).toLowerCase();
-    const response = commands[command];
-
-    if (message.content.startsWith(`${prefix}remindme`) || response) {
-        COOLDOWNS.set(userId, Date.now() + GLOBAL_COOLDOWN);
-        
-        if (message.content.startsWith(`${prefix}remindme`)) {
-            const args = message.content.slice(9).trim().split(/ +/);
-            await handleReminder(message, args);
-        } else {
-            await message.reply(response);
-        }
-        
-        setTimeout(() => COOLDOWNS.delete(userId), GLOBAL_COOLDOWN);
+    COOLDOWNS.set(userId, Date.now() + GLOBAL_COOLDOWN);
+    
+    if (message.content.startsWith(`${prefix}remindme`)) {
+        const args = message.content.slice(9).trim().split(/ +/);
+        await handleReminder(message, args);
+    } else {
+        await message.reply(typeof response === 'function' ? response() : response);
     }
+    
+    setTimeout(() => COOLDOWNS.delete(userId), GLOBAL_COOLDOWN);
 });
 
 client.login(token);
